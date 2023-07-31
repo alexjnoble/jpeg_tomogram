@@ -58,6 +58,10 @@ Here is an example of using the script with some optional arguments:
 ./jpeg_tomogram.py pack tomogram.mrc -o output_directory/ -q 90 -c 4 -v
 ```
 
+## Author
+
+This script was written by Alex J. Noble with assistance from OpenAI's GPT-4 model, July 2023.
+
 In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
 
 ---
