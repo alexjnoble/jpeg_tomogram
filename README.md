@@ -58,6 +58,17 @@ Here is an example of using the script with some optional arguments:
 ./jpeg_tomogram.py pack tomogram.mrc -o output_directory/ -q 90 -c 4 -v
 ```
 
+This command will do the following:
+
+- `pack`: This is the mode you are using. It can be either pack (to convert MRC files to JPEG stacks) or unpack (to convert JPEG stacks to MRC files).
+- `tomogram.mrc`: This is the input tomogram. The script will convert this MRC file into a custom JPEG stack.
+- `-o output_directory/`: This is an optional argument that specifies the output directory. The script will save the output JPEG stack in this directory. If you don't use the -o option, the script will save the output in the same directory as the input.
+- `-q 90`: This is an optional argument that sets the quality of the JPEG images in the stack. The quality can be any integer from 1 to 100, with higher numbers meaning better quality (but larger file sizes). If you don't use the -q option, the script will use a default quality of 80.
+- `-c 4`: This is an optional argument that sets the number of CPU cores to use. The script can use multiple cores to process images faster. If you don't use the -c option, the script will use all available cores.
+- `-v`: This is an optional argument that enables verbose output. If you use the -v option, the script will print more detailed messages about what it's doing.
+
+This is just an example. Adjust the command to suit your needs!
+
 ## Author
 
 This script was written by Alex J. Noble with assistance from OpenAI's GPT-4 model, July 2023.
