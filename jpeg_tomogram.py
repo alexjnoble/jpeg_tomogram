@@ -161,7 +161,7 @@ def main():
     parser.add_argument('input_path', help='The input file or directory')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
     parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file')
-    parser.add_argument('-q', '--quality', type=int, default=80, help='The quality of the JPEG images in the stack (default: 80)')
+    parser.add_argument('-q', '--quality', type=int, default=80, help='The quality of the JPEG images in the stack. Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print verbose output')
     args = parser.parse_args()
