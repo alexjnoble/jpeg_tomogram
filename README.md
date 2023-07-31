@@ -1,6 +1,6 @@
 # JPEG Tomogram Conversion Script
 
-Pack and unpack 3D MRC files to JPEG stacks for visualization to save space. This tool is intended for visualization and annotation of cryoET tomograms.
+Pack and unpack 3D MRC files to JPEG stacks for visualization to save space. This tool is intended for visualization and annotation of cryoET tomograms, which may be useful locally and for sending to collaborators for faster visual analysis.
 
 ## Warning
 This tool should not be used for downstream processing as the JPEG format causes a loss in precision.
