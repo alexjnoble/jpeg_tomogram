@@ -40,9 +40,7 @@ To unpack a directory of JPEG stacks into MRC files:
 ./jpeg_tomogram.py unpack tomograms/
 ```
 
-## Options
-
-This script supports several optional arguments:
+## Arguments
 
 - `-o`, `--output_path`: Specify the output file or directory. By default, the output will be saved in the same location as the input.
 - `-e`, `--external_viewer`: Specify an external program to open the unpacked MRC file.
