@@ -3,17 +3,15 @@
 Pack and unpack 3D MRC files to JPEG stacks for visualization to save space. This tool is intended for visualization and annotation of cryoET tomograms, which may be useful locally and for sending to collaborators for faster visual analysis.
 
 ## Warning
+
 This tool should not be used for downstream processing as the JPEG format causes a loss in precision.
 
 ## Requirements
-This script requires Python 3 and the following Python libraries:
-- mrcfile
-- numpy
-- Pillow
 
-You can install these libraries using pip:
-```
-pip install mrcfile numpy Pillow
+This script requires Python 3 and several Python libraries. These libraries can be installed via pip:
+
+```bash
+pip install mrcfile numpy pillow
 ```
 
 ## Usage
@@ -65,12 +63,22 @@ This command will do the following:
 - `-c 4`: This is an optional argument that sets the number of CPU cores to use. The script can use multiple cores to process images faster. If you don't use the -c option, the script will use all available cores.
 - `-v`: This is an optional argument that enables verbose output. If you use the -v option, the script will print more detailed messages about what it's doing.
 
+In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
+
 This is just an example. Adjust the command to suit your needs!
+
+## Issues and Support
+
+If you encounter any problems or have any questions about the script, please [Submit an Issue](https://github.com/alexjnoble/jpeg_tomogram/issues).
+
+## Contributions
+
+Contributions are welcome! Please open a [Pull Request](https://github.com/alexjnoble/jpeg_tomogram/pulls) or [Issue](https://github.com/alexjnoble/jpeg_tomogram/issues).
 
 ## Author
 
-This script was written by Alex J. Noble with assistance from OpenAI's GPT-4 model, July 2023.
+This script was written by Alex J. Noble with assistance from OpenAI's GPT-4 model, July-August 2023 at SEMC.
 
-In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
+## License
 
----
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
