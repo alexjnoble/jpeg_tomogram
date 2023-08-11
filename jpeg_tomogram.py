@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 #
-# Author: Alex J. Noble with help from GPT4, July 2023
+# Author: Alex J. Noble with help from GPT4, July-August 2023 @SEMC, under the MIT License
 #
-# This script packs and unpacks 3D MRC files to JPEG stacks and vice versa.
+# This script packs and unpacks 3D MRC files to custom JPEG stacks and vice versa.
 # By default, JPEG packing uses 80% quality, which reduces the size to ~10%
 # of the original while making minimal visual impact to cryoET tomograms.
 # Warning: Only use this for visualization and annotation, not for
 # downstream processing.
-# Requirement: pip install mrcfile numpy
+# Requirement: pip install mrcfile numpy pillow
 # Usage, single-file packing: ./jpeg_tomogram.py pack tomogram.mrc
 # Usage, packing a folder of mrc files: ./jpeg_tomogram.py pack tomograms/
 # Usage, single-file unpacking ./jpeg_tomogram.py unpack tomogram.jpgs
@@ -119,7 +119,7 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
     if cores is None:
         cores = cpu_count()
 
-    quality = jpeg_stack_filename.split('_JPG')[-1].split('.')[0]  # extract quality from the filename
+    # quality = jpeg_stack_filename.split('_JPG')[-1].split('.')[0]  # extract quality from the filename. I would like to write this to the mrc header, but not sure how...
     mrc_filename = mrc_filename.rsplit('.', 1)[0] + f'.mrc'  # add .mrc to the filename
     
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -219,4 +219,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
