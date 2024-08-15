@@ -1,6 +1,6 @@
 # JPEG Tomogram Conversion Script
 
-Pack and unpack 3D MRC files to custom JPEG stacks for visualization and to save space. This tool is intended for visualization and annotation of cryoET tomograms, which may be useful locally and for sending to collaborators for faster visual analysis.
+Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualization and to save space. By default, JPEG packing uses 80% quality, which reduces the size to ~10% of the original while making minimal visual impact to cryoET tomograms. This tool is intended for visualization and annotation of cryoET tomograms, which may be useful locally and for distributing tomograms for faster visual analysis and collaboration.
 
 ## Warning
 
@@ -8,7 +8,7 @@ This tool should not be used for downstream processing as the JPEG format causes
 
 ## Requirements
 
-This script requires Python 3 and several Python libraries. These libraries can be installed via pip:
+This script requires Python 3 and several Python libraries. Install the libraries via pip:
 
 ```bash
 pip install mrcfile numpy pillow
@@ -41,8 +41,8 @@ To unpack a directory of JPEG stacks into MRC files:
 ## Arguments
 
 - `-o`, `--output_path`: Specify the output file or directory. By default, the output will be saved in the same location as the input.
-- `-e`, `--external_viewer`: Specify an external program to open the unpacked MRC file.
-- `-q`, `--quality`: Specify the quality of the JPEG images in the stack. The default quality is 80, and values above 95 should be avoided.
+- `-e`, `--external_viewer`: Specify an external program to open the unpacked MRC file (e.g. 3dmod).
+- `-q`, `--quality`: Specify the quality of the JPEG images in the stack. The default quality is 80. Values above 95 should be avoided.
 - `-c`, `--cores`: Specify the number of CPU cores to use. By default, the script will use all available cores.
 - `-v`, `--verbose`: Enable verbose output.
 
@@ -59,8 +59,8 @@ This command will do the following:
 - `pack`: This is the mode you are using. It can be either pack (to convert MRC files to JPEG stacks) or unpack (to convert JPEG stacks to MRC files).
 - `tomogram.mrc`: This is the input tomogram. The script will convert this MRC file into a custom JPEG stack.
 - `-o output_directory/`: This is an optional argument that specifies the output directory. The script will save the output JPEG stack in this directory. If you don't use the -o option, the script will save the output in the same directory as the input.
-- `-q 90`: This is an optional argument that sets the quality of the JPEG images in the stack. The quality can be any integer from 1 to 100, with higher numbers meaning better quality (but larger file sizes). If you don't use the -q option, the script will use a default quality of 80.
-- `-c 4`: This is an optional argument that sets the number of CPU cores to use. The script can use multiple cores to process images faster. If you don't use the -c option, the script will use all available cores.
+- `-q 90`: This is an optional argument that sets the quality of the JPEG images in the stack. The quality can be any integer from 1 to 100, with higher numbers meaning better quality (but larger file sizes). If you don't use the -q option, the default quality is 80.
+- `-c 4`: This is an optional argument that sets the number of CPU cores to use. The script can use multiple cores to process images faster. If you don't use the -c option, all available cores are used.
 - `-v`: This is an optional argument that enables verbose output. If you use the -v option, the script will print more detailed messages about what it's doing.
 
 In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
