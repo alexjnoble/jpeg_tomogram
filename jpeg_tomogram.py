@@ -83,17 +83,17 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
         cores = cpu_count()
 
     with mrcfile.open(mrc_filename, 'r') as mrc:
-        data = mrc.data.astype(np.float32)  # ensure data is float type to prevent loss of precision
+        data = mrc.data.astype(np.float32)  # Ensure data is float type to prevent loss of precision
         mean = np.mean(data)
         std = np.std(data)
-        data = (data - mean) / std  # normalize to zero mean and unit standard deviation
+        data = (data - mean) / std  # Normalize to zero mean and unit standard deviation
         data = data - np.min(data)
         data = data / np.max(data)
-        data = (data * 255).astype(np.uint8)  # convert data to 8-bit integers
+        data = (data * 255).astype(np.uint8)  # Convert data to 8-bit integers
 
-        write_header(mrc, jpeg_stack_filename + '_header.npy')  # write the header to a separate file
+        write_header(mrc, jpeg_stack_filename + '_header.npy')  # Write the header to a separate file
 
-    jpeg_stack_filename = jpeg_stack_filename.rsplit('.', 1)[0] + f'.jpgs'  # add .jpgs to the filename
+    jpeg_stack_filename = jpeg_stack_filename.rsplit('.', 1)[0] + f'.jpgs'  # Add .jpgs to the filename
 
     with tempfile.TemporaryDirectory() as tmpdir:
         if cores > 1:
@@ -119,8 +119,8 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
     if cores is None:
         cores = cpu_count()
 
-    # quality = jpeg_stack_filename.split('_JPG')[-1].split('.')[0]  # extract quality from the filename. I would like to write this to the mrc header, but not sure how...
-    mrc_filename = mrc_filename.rsplit('.', 1)[0] + f'.mrc'  # add .mrc to the filename
+    # quality = jpeg_stack_filename.split('_JPG')[-1].split('.')[0]  # Extract quality from the filename. I would like to write this to the mrc header, but not sure how...
+    mrc_filename = mrc_filename.rsplit('.', 1)[0] + f'.mrc'  # Add .mrc to the filename
     
     with tempfile.TemporaryDirectory() as tmpdir:
         with open(jpeg_stack_filename, 'rb') as f:
@@ -150,7 +150,7 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
                     mrc.header[field] = header[field]
                 except:
                     pass
-            mrc.set_data((data - 128).astype(np.int8))  # convert data to signed 8-bit integer
+            mrc.set_data((data - 128).astype(np.int8))  # Convert data to signed 8-bit integer
         print_success(f"{mrc_filename} successfully unpacked!")
 
 def main():
@@ -160,7 +160,7 @@ def main():
     parser.add_argument('mode', choices=['pack', 'unpack'], help='Whether to pack an MRC file into a JPEG stack or unpack a JPEG stack into an MRC file')
     parser.add_argument('input_path', help='The input file or directory')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
-    parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file')
+    parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file (e.g. 3dmod)')
     parser.add_argument('-q', '--quality', type=int, default=80, help='The quality of the JPEG images in the stack. Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print verbose output')
@@ -202,7 +202,7 @@ def main():
     else:
         if args.output_path is None:
             if args.mode == 'pack':
-                args.output_path = args.input_path.rsplit('.', 1)[0] + f'_JPG{args.quality}'  # add JPEG quality to the filename
+                args.output_path = args.input_path.rsplit('.', 1)[0] + f'_JPG{args.quality}'  # Add JPEG quality to the filename
             elif args.mode == 'unpack':
                 args.output_path = args.input_path.rsplit('.', 1)[0]
         if args.mode == 'pack':
