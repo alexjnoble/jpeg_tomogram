@@ -71,7 +71,7 @@ This is just an example. Adjust the command to suit your needs!
 
 ## Requests
 
-Please integrate this script/algorithm/idea into tomography viewing software - such as IMOD, Napari, Amira, Dragonfly - so that .jpgs files can be viewed natively without unpacking them back to mrc files.
+Please integrate this script/algorithm/idea into tomography viewing software - such as IMOD, Napari, Amira, Dragonfly, Dynamo - so that .jpgs files can be viewed natively without unpacking them back to large mrc files.
 
 ## Issues and Support
 
