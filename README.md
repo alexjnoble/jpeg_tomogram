@@ -6,13 +6,15 @@ Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualizat
 
 This tool should not be used for downstream processing as the JPEG format causes a loss in precision.
 
-## Requirements
+## Requirements and Installation
 
 This script requires Python 3 and several Python libraries. Install the libraries via pip:
 
 ```bash
 pip install mrcfile numpy pillow tqdm
 ```
+
+To use JPEG Tomogram, download the jpeg_tomogram.py file directly and place it in your working directory or environment for use. Make it executable on Linux with this command: `chmod +x jpeg_tomogram.py`.
 
 ## Usage
 
@@ -44,14 +46,14 @@ To unpack a directory of JPEG stacks into MRC files:
 - `-e`, `--external_viewer`: Specify an external program to open the unpacked MRC file (e.g. 3dmod).
 - `-q`, `--quality`: Specify the quality of the JPEG images in the stack. The default quality is 80. Values above 95 should be avoided.
 - `-c`, `--cores`: Specify the number of CPU cores to use. By default, the script will use all available cores.
-- `-v`, `--verbose`: Enable verbose output.
+- `-V`, `--verbose`: Enable verbose output.
 
 ## Example with Options
 
 Here is an example of using the script with some optional arguments:
 
 ```
-./jpeg_tomogram.py pack tomogram.mrc -o output_directory/ -q 90 -c 4 -v
+./jpeg_tomogram.py pack tomogram.mrc -o output_directory/ -q 90 -c 4 -V
 ```
 
 This command will do the following:
@@ -61,7 +63,7 @@ This command will do the following:
 - `-o output_directory/`: This is an optional argument that specifies the output directory. The script will save the output JPEG stack in this directory. If you don't use the -o option, the script will save the output in the same directory as the input.
 - `-q 90`: This is an optional argument that sets the quality of the JPEG images in the stack. The quality can be any integer from 1 to 100, with higher numbers meaning better quality (but larger file sizes). If you don't use the -q option, the default quality is 80.
 - `-c 4`: This is an optional argument that sets the number of CPU cores to use. The script can use multiple cores to process images faster. If you don't use the -c option, all available cores are used.
-- `-v`: This is an optional argument that enables verbose output. If you use the -v option, the script will print more detailed messages about what it's doing.
+- `-V`: This is an optional argument that enables verbose output. If you use the -V option, the script will print more detailed messages about what it's doing.
 
 In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
 
