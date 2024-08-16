@@ -47,6 +47,7 @@ To unpack a directory of JPEG stacks into MRC files:
 - `-q`, `--quality`: Specify the quality of the JPEG images in the stack. The default quality is 80. Values above 95 should be avoided.
 - `-c`, `--cores`: Specify the number of CPU cores to use. By default, the script will use all available cores.
 - `-V`, `--verbose`: Enable verbose output.
+- `-v`, `--version`: Show version number.
 
 ## Example with Options
 
