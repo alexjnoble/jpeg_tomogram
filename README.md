@@ -78,7 +78,10 @@ This command will do the following:
 
 In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
 
-This is just an example. Adjust the command to suit your needs!
+## Examples
+
+### Original MRC File
+![Example 1](example_images/JPEG_tomogram_example1.png)
 
 ## Requests
 
