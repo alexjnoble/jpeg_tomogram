@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 #
-# Author: Alex J. Noble with help from GPT4, July-August 2023 @SEMC, under the MIT License
+# Author: Alex J. Noble with help from GPT & Claude, 2023-24 @SEMC, under the MIT License
 #
 # This script packs and unpacks 3D MRC files to custom JPEG stacks and vice versa.
 # By default, JPEG packing uses 80% quality, which reduces the size to ~10%
 # of the original while making minimal visual impact to cryoET tomograms.
-# Warning: Only use this for visualization and annotation, not for
-# downstream processing.
-# Requirement: pip install mrcfile numpy pillow
+# Warning: Only use this for visualization and annotation, not for downstream processing.
+#
+# Requirement: pip install mrcfile numpy pillow tqdm
 # Usage, single-file packing: ./jpeg_tomogram.py pack tomogram.mrc
 # Usage, packing a folder of mrc files: ./jpeg_tomogram.py pack tomograms/
 # Usage, single-file unpacking ./jpeg_tomogram.py unpack tomogram.jpgs
@@ -24,6 +24,7 @@ import tempfile
 import subprocess
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
 
@@ -34,19 +35,50 @@ GREEN = "\033[32m"
 RESET = "\033[0m"
 
 def print_warning(text):
-    """Prints a warning message in yellow text"""
+    """
+    Print a warning message in yellow text.
+
+    :param str text: The warning message to be printed
+    """
     print(f"{YELLOW}{text}{RESET}")
 
 def print_error(text):
-    """Prints an error message in red text"""
+    """
+    Print an error message in red text.
+
+    :param str text: The error message to be printed
+    """
     print(f"{RED}{text}{RESET}", file=sys.stderr)
 
 def print_success(text):
-    """Prints a success message in green text"""
+    """
+    Print a success message in green text.
+
+    :param str text: The success message to be printed
+    """
     print(f"{GREEN}{text}{RESET}")
 
+def validate_quality(value):
+    """
+    Validate the JPEG quality value.
+
+    :param int value: The quality value to be validated
+    :return int: The validated quality value
+    :raises argparse.ArgumentTypeError: If the value is not between 1 and 100
+    """
+    ivalue = int(value)
+    if ivalue < 1 or ivalue > 100:
+        raise argparse.ArgumentTypeError(f"Quality must be between 1 and 100, got {value}")
+    return ivalue
+
 def save_image(img_data, filename, quality):
-    """Saves a single slice of the MRC data as a JPEG image"""
+    """
+    Save a single slice of the MRC data as a JPEG image.
+
+    :param PIL.Image img_data: The image data to be saved
+    :param str filename: The filename to save the image to
+    :param int quality: The JPEG quality (1-100)
+    """
     with open(filename, 'wb') as f, io.BytesIO() as img_buffer:
         img_data.save(img_buffer, format='JPEG', quality=quality)
         img_data = img_buffer.getvalue()
@@ -54,7 +86,12 @@ def save_image(img_data, filename, quality):
         f.write(img_data)
 
 def load_image(filename):
-    """Loads a single JPEG image"""
+    """
+    Load a single JPEG image.
+
+    :param str filename: The filename of the image to load
+    :return PIL.Image: The loaded image
+    """
     with open(filename, 'rb') as f:
         img_size = int.from_bytes(f.read(4), 'little')
         img_data = f.read(img_size)
@@ -64,110 +101,213 @@ def load_image(filename):
     return img
 
 def write_header(mrc, filename):
-    """Writes the header information of the MRC file"""
+    """
+    Write the header information of the MRC file.
+
+    :param mrcfile.mrcfile.MrcFile mrc: The MRC file object
+    :param str filename: The filename to save the header information to
+    """
     np.save(filename, mrc.header, allow_pickle=False)
 
 def read_header(filename):
-    """Reads the header information of the MRC file"""
-    try:
-        return np.load(filename)
-    except FileNotFoundError:
-        print_warning(f"Warning: Header file {filename} not found. Unpacked MRC file will have default header values.")
-        return {}
+    """
+    Read the header information of the MRC file.
+
+    :param str filename: The filename of the JPEG stack
+    :return dict: The header information
+    """
+    base_name = os.path.splitext(filename)[0]  # Remove the .jpgs extension
+    header_pattern = f"{base_name}*_header.npy"
+    
+    matching_headers = list(Path('.').glob(header_pattern))
+    
+    if matching_headers:
+        header_file = str(matching_headers[0])
+        print(f"Found header file: {header_file}")
+        return np.load(header_file)
+    
+    print_warning(f"Warning: No header file found matching {header_pattern}. Unpacked MRC file will have default header values.")
+    return {}
+
+def save_image_wrapper(args):
+    """
+    Wrapper function for save_image to be used with multiprocessing.
+
+    :param tuple args: Tuple containing arguments for save_image
+    :return: Result of save_image function
+    """
+    return save_image(*args)
 
 def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, verbose=False):
-    """Converts a MRC file into a stack of JPEG images"""
+    """
+    Convert an MRC file to a JPEG stack.
+
+    :param str mrc_filename: The input MRC filename
+    :param str jpeg_stack_filename: The output JPEG stack filename
+    :param int quality: The JPEG quality (1-100)
+    :param int cores: Number of CPU cores to use (default: None, uses all available cores)
+    :param bool verbose: Whether to print verbose output
+    :return str: The filename of the created JPEG stack
+    """
     if verbose:
         print(f"{jpeg_stack_filename}.jpgs is being packed...")
     if cores is None:
         cores = cpu_count()
 
     with mrcfile.open(mrc_filename, 'r') as mrc:
-        data = mrc.data.astype(np.float32)  # Ensure data is float type to prevent loss of precision
+        data = mrc.data.astype(np.float32)
         mean = np.mean(data)
         std = np.std(data)
-        data = (data - mean) / std  # Normalize to zero mean and unit standard deviation
+        data = (data - mean) / std
         data = data - np.min(data)
         data = data / np.max(data)
-        data = (data * 255).astype(np.uint8)  # Convert data to 8-bit integers
+        data = (data * 255).astype(np.uint8)
 
-        write_header(mrc, jpeg_stack_filename + '_header.npy')  # Write the header to a separate file
+        write_header(mrc, jpeg_stack_filename + '_header.npy')
 
-    jpeg_stack_filename = jpeg_stack_filename.rsplit('.', 1)[0] + f'.jpgs'  # Add .jpgs to the filename
+    jpeg_stack_filename = jpeg_stack_filename.rsplit('.', 1)[0] + f'.jpgs'
 
     with tempfile.TemporaryDirectory() as tmpdir:
         if cores > 1:
             with Pool(processes=cores) as pool:
-                pool.starmap(save_image, [(Image.fromarray(slice), os.path.join(tmpdir, f'{i}.jpg'), quality) for i, slice in enumerate(data)])
+                save_args = [(Image.fromarray(slice), os.path.join(tmpdir, f'{i}.jpg'), quality) for i, slice in enumerate(data)]
+                list(tqdm(pool.imap(save_image_wrapper, save_args), 
+                    total=len(data), desc="Packing", unit="slice"))
         else:
-            for i, slice in enumerate(data):
+            for i, slice in tqdm(enumerate(data), total=len(data), desc="Packing", unit="slice"):
                 save_image(Image.fromarray(slice), os.path.join(tmpdir, f'{i}.jpg'), quality)
 
         with open(jpeg_stack_filename, 'wb') as f:
             f.write(len(data).to_bytes(4, 'little'))
-            for i in range(len(data)):
+            for i in tqdm(range(len(data)), desc="Writing", unit="slice"):
                 with open(os.path.join(tmpdir, f'{i}.jpg'), 'rb') as img_file:
                     img_data = img_file.read()
                     f.write(len(img_data).to_bytes(4, 'little'))
                     f.write(img_data)
-        print_success(f"{jpeg_stack_filename} successfully packed!")
+    print_success(f"{jpeg_stack_filename} successfully packed!")
+    return jpeg_stack_filename
 
 def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False):
-    """Converts a stack of JPEG images back into a MRC file"""
+    """
+    Convert a JPEG stack to an MRC file.
+
+    :param str jpeg_stack_filename: The input JPEG stack filename
+    :param str mrc_filename: The output MRC filename
+    :param int cores: Number of CPU cores to use (default: None, uses all available cores)
+    :param bool verbose: Whether to print verbose output
+    """
     if verbose:
-        print(f"{mrc_filename}.mrc is being unpacked...")
+        print(f"Input JPEG stack: {jpeg_stack_filename}")
+        print(f"Output MRC filename (before processing): {mrc_filename}")
+
     if cores is None:
         cores = cpu_count()
 
-    # quality = jpeg_stack_filename.split('_JPG')[-1].split('.')[0]  # Extract quality from the filename. I would like to write this to the mrc header, but not sure how...
-    mrc_filename = mrc_filename.rsplit('.', 1)[0] + f'.mrc'  # Add .mrc to the filename
+    # Find the header file
+    base_name = os.path.splitext(jpeg_stack_filename)[0]
+    header_pattern = f"{base_name}*_header.npy"
+    matching_headers = list(Path('.').glob(header_pattern))
     
+    if matching_headers:
+        header_file = str(matching_headers[0])
+        # Extract the original filename from the header filename
+        original_filename = header_file.rsplit('_JPG', 1)[0] + '.mrc'
+        mrc_filename = original_filename
+    else:
+        # If no header file is found, use the input filename without the .jpgs extension
+        mrc_filename = base_name + '.mrc'
+
+    if verbose:
+        print(f"Output MRC filename (after processing): {mrc_filename}")
+
     with tempfile.TemporaryDirectory() as tmpdir:
         with open(jpeg_stack_filename, 'rb') as f:
             num_images = int.from_bytes(f.read(4), 'little')
 
-            for i in range(num_images):
+            for i in tqdm(range(num_images), desc="Extracting", unit="slice"):
                 img_size = int.from_bytes(f.read(4), 'little')
                 img_data = f.read(img_size)
                 with open(os.path.join(tmpdir, f'{i}.jpg'), 'wb') as img_file:
                     img_file.write(img_data)
 
-        images = []
         if cores > 1:
             with Pool(processes=cores) as pool:
-                images = pool.map(load_image, [os.path.join(tmpdir, f'{i}.jpg') for i in range(num_images)])
+                images = list(tqdm(pool.imap(load_image, 
+                    [os.path.join(tmpdir, f'{i}.jpg') for i in range(num_images)]), 
+                    total=num_images, desc="Loading", unit="slice"))
         else:
-            for i in range(num_images):
+            images = []
+            for i in tqdm(range(num_images), desc="Loading", unit="slice"):
                 images.append(load_image(os.path.join(tmpdir, f'{i}.jpg')))
-        data = np.array([np.array(img) for img in images])
+        
+        data = np.array([np.array(img) for img in tqdm(images, desc="Converting", unit="slice")])
 
-        header = read_header(os.path.splitext(jpeg_stack_filename)[0] + '_header.npy')
+        header = read_header(jpeg_stack_filename)
 
         with mrcfile.new(mrc_filename, overwrite=True) as mrc:
-            include_fields = ['nx', 'ny', 'nz', 'mode', 'nxstart', 'nystart', 'nzstart', 'mx', 'my', 'mz', 'xlen', 'ylen', 'zlen', 'alpha', 'beta', 'gamma', 'mapc', 'mapr', 'maps', 'amin', 'amax', 'amean', 'ispg', 'extra', 'xorigin', 'yorigin', 'zorigin', 'map', 'machst', 'rms', 'nlabels', 'cella']  # 'nsymbt' has been removed because it can shift the unpacked mrc in x,y
+            include_fields = ['nx', 'ny', 'nz', 'mode', 'nxstart', 'nystart', 'nzstart', 'mx', 'my', 'mz', 'xlen', 'ylen', 'zlen', 'alpha', 'beta', 'gamma', 'mapc', 'mapr', 'maps', 'amin', 'amax', 'amean', 'ispg', 'extra', 'xorigin', 'yorigin', 'zorigin', 'map', 'machst', 'rms', 'nlabels', 'cella']
             for field in include_fields:
                 try:
                     mrc.header[field] = header[field]
                 except:
                     pass
-            mrc.set_data((data - 128).astype(np.int8))  # Convert data to signed 8-bit integer
-        print_success(f"{mrc_filename} successfully unpacked!")
+            mrc.set_data((data - 128).astype(np.int8))
+    print_success(f"{mrc_filename} successfully unpacked!")
+
+def report_compression_ratio(input_path, output_files):
+    """
+    Report the compression ratio achieved by packing.
+
+    :param str input_path: The input file or directory path
+    :param list output_files: List of output file paths
+    """
+    if os.path.isdir(input_path):
+        input_files = list(Path(input_path).glob('*.mrc')) + list(Path(input_path).glob('*.rec'))
+        input_size = sum(os.path.getsize(str(f)) for f in input_files)
+    else:
+        input_size = os.path.getsize(input_path)
+
+    output_size = sum(os.path.getsize(f) for f in output_files)
+    percentage = (1 - output_size / input_size) * 100
+    print(f"Size reduction: {percentage:.2f}%")
+
+def pack_file(args):
+    """
+    Wrapper function for mrc_to_jpeg_stack to be used with multiprocessing.
+
+    :param tuple args: Tuple containing arguments for mrc_to_jpeg_stack
+    :return: Result of mrc_to_jpeg_stack function
+    """
+    return mrc_to_jpeg_stack(*args)
+
+def unpack_file(args):
+    """
+    Wrapper function for jpeg_stack_to_mrc to be used with multiprocessing.
+
+    :param tuple args: Tuple containing arguments for jpeg_stack_to_mrc
+    :return: Result of jpeg_stack_to_mrc function
+    """
+    return jpeg_stack_to_mrc(*args)
 
 def main():
+    """
+    Main function to handle command-line arguments and execute packing or unpacking operations.
+    """
     start_time = time.time()
 
     parser = argparse.ArgumentParser(description='Pack or unpack a JPEG stack.')
     parser.add_argument('mode', choices=['pack', 'unpack'], help='Whether to pack an MRC file into a JPEG stack or unpack a JPEG stack into an MRC file')
-    parser.add_argument('input_path', help='The input file or directory')
+    parser.add_argument('input_path', help='The input file or directory of files (.mrc and .rec supported)')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
     parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file (e.g. 3dmod)')
-    parser.add_argument('-q', '--quality', type=int, default=80, help='The quality of the JPEG images in the stack. Note: values above 95 should be avoided (default: 80)')
+    parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print verbose output')
     args = parser.parse_args()
 
     input_path = Path(args.input_path)
     output_path = Path(args.output_path) if args.output_path else None
+
     if input_path.is_dir():
         if args.mode == 'pack':
             files = list(input_path.glob('*.mrc')) + list(input_path.glob('*.rec'))
@@ -179,43 +319,51 @@ def main():
             if not files:
                 print_error(f"Error: No .jpgs files found in {input_path}")
                 sys.exit(1)
+        
         if output_path and not output_path.is_dir():
             print_error(f"Error: Output path {output_path} is not a directory")
             sys.exit(1)
+        
         output_path = output_path or input_path
         num_files = len(files)
         cores = args.cores if args.cores else cpu_count()
         min_cores = min(cores, num_files)
+
         if args.mode == 'pack':
             print(f"Packing {num_files} tomograms with JPEG{args.quality} across {min_cores} CPU cores...")
             with Pool(processes=cores) as pool:
-                pool.starmap(mrc_to_jpeg_stack, [(str(f), str(output_path / (f.stem + f'_JPG{args.quality}')), args.quality, 1, args.verbose) for f in files])  # add JPEG quality to the filename
+                pack_args = [(str(f), str(output_path / (f.stem + f'_JPG{args.quality}')), args.quality, 1, args.verbose) for f in files]
+                output_files = list(tqdm(pool.imap(pack_file, pack_args), 
+                    total=len(files), desc="Overall Progress", unit="file"))
+            report_compression_ratio(str(input_path), output_files)
         elif args.mode == 'unpack':
             print(f"Unpacking {num_files} tomograms across {min_cores} CPU cores...")
             with Pool(processes=cores) as pool:
-                pool.starmap(jpeg_stack_to_mrc, [(str(f), str(output_path / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 1, args.verbose) for f in files])  # add JPEG quality to the filename
-            if args.external_viewer:
-                print(f"Opening {num_files} files with {args.external_viewer}...")
-                file_names = [str(file).replace('.jpgs', '.mrc') for file in files]
-                subprocess.run([args.external_viewer] + shlex.split(' '.join(file_names)), check=True)
+                unpack_args = [(str(f), str(output_path / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 1, args.verbose) for f in files]
+                list(tqdm(pool.imap(unpack_file, unpack_args), 
+                    total=len(files), desc="Overall Progress", unit="file"))
 
-    else:
+    else:  # Single file packing/unpacking
         if args.output_path is None:
             if args.mode == 'pack':
-                args.output_path = args.input_path.rsplit('.', 1)[0] + f'_JPG{args.quality}'  # Add JPEG quality to the filename
+                args.output_path = args.input_path.rsplit('.', 1)[0] + f'_JPG{args.quality}'
             elif args.mode == 'unpack':
-                args.output_path = args.input_path.rsplit('.', 1)[0]
+                args.output_path = os.path.splitext(args.input_path)[0]  # Just remove the .jpgs extension
         if args.mode == 'pack':
-            mrc_to_jpeg_stack(args.input_path, args.output_path, args.quality, args.cores, args.verbose)
+            output_file = mrc_to_jpeg_stack(args.input_path, args.output_path, args.quality, args.cores, args.verbose)
+            report_compression_ratio(args.input_path, [output_file])
         elif args.mode == 'unpack':
-            jpeg_stack_to_mrc(args.input_path, args.output_path, args.cores, args.verbose)
+            if args.verbose:
+                print(f"Input file: {args.input_path}")
+                print(f"Output path: {args.output_path}")
+            mrc_filename = jpeg_stack_to_mrc(args.input_path, args.output_path, args.cores, args.verbose)
             if args.external_viewer:
-                print(f"Opening {args.output_path}'.mrc' with {args.external_viewer}...")
-                subprocess.run([args.external_viewer, args.output_path + f'.mrc'], check=True)
+                print(f"Opening {mrc_filename} with {args.external_viewer}...")
+                subprocess.run([args.external_viewer, mrc_filename], check=True)
         num_files = 1
 
     end_time = time.time()
-    print(f"Total time taken to process {num_files} tomograms: {end_time - start_time:.2f} seconds")
+    print(f"Total time taken to process {num_files} tomogram{'s' if num_files > 1 else ''}: {end_time - start_time:.2f} seconds")
 
 if __name__ == '__main__':
     main()
