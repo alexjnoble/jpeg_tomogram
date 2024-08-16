@@ -83,6 +83,12 @@ In this example, the script will pack the `tomogram.mrc` file into a JPEG stack 
 ### Example 1:
 ![Example 1](example_images/JPEG_tomogram_example1.png)
 
+### Example 2:
+![Example 2](example_images/JPEG_tomogram_example2.png)
+
+### Example 3:
+![Example 3](example_images/JPEG_tomogram_example3.png)
+
 All examples use 80% JPEG quality.
 
 ## Requests
