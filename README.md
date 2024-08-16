@@ -11,7 +11,7 @@ This tool should not be used for downstream processing as the JPEG format causes
 This script requires Python 3 and several Python libraries. Install the libraries via pip:
 
 ```bash
-pip install mrcfile numpy pillow
+pip install mrcfile numpy pillow tqdm
 ```
 
 ## Usage
@@ -67,6 +67,10 @@ In this example, the script will pack the `tomogram.mrc` file into a JPEG stack 
 
 This is just an example. Adjust the command to suit your needs!
 
+## Requests
+
+Please integrate this script/algorithm/idea into tomography viewing software - such as IMOD, Napari, Amira, Dragonfly - so that .jpgs files can be viewed natively without unpcking them back to mrc files.
+
 ## Issues and Support
 
 If you encounter any problems or have any questions about the script, please [Submit an Issue](https://github.com/alexjnoble/jpeg_tomogram/issues).
@@ -77,7 +81,7 @@ Contributions are welcome! Please open a [Pull Request](https://github.com/alexj
 
 ## Author
 
-This script was written by Alex J. Noble with assistance from OpenAI's GPT-4 model, July-August 2023 at SEMC.
+This script was written by Alex J. Noble with assistance from OpenAI's GPT-4 and Anthropic's Claude models, 2023-24 at SEMC.
 
 ## License
 
