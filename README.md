@@ -80,7 +80,7 @@ In this example, the script will pack the `tomogram.mrc` file into a JPEG stack 
 
 ## Examples
 
-### Original MRC File
+### Example 1
 ![Example 1](example_images/JPEG_tomogram_example1.png)
 
 ## Requests
