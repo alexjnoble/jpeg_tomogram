@@ -141,7 +141,7 @@ def save_image_wrapper(args):
     """
     return save_image(*args)
 
-def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, verbose=False):
+def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, verbose=False, quiet=False):
     """
     Convert an MRC file to a JPEG stack.
 
@@ -150,9 +150,10 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
     :param int quality: The JPEG quality (1-100)
     :param int cores: Number of CPU cores to use (default: None, uses all available cores)
     :param bool verbose: Whether to print verbose output
+    :param bool quiet: Whether to suppress all output and progress bars
     :return str: The filename of the created JPEG stack
     """
-    if verbose:
+    if verbose and not quiet:
         print(f"{jpeg_stack_filename}.jpgs is being packed...")
     if cores is None:
         cores = cpu_count()
@@ -178,23 +179,27 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
         if cores > 1:
             with Pool(processes=cores) as pool:
                 save_args = [(Image.fromarray(slice), os.path.join(tmpdir, f'{i}.jpg'), quality) for i, slice in enumerate(data)]
-                list(tqdm(pool.imap(save_image_wrapper, save_args), 
-                    total=len(data), desc="Packing", unit="slice"))
+                list(pool.imap(save_image_wrapper, save_args) if quiet else
+                     tqdm(pool.imap(save_image_wrapper, save_args), 
+                          total=len(data), desc="Packing", unit="slice"))
         else:
-            for i, slice in tqdm(enumerate(data), total=len(data), desc="Packing", unit="slice"):
+            for i, slice in (range(len(data)) if quiet else
+                             tqdm(enumerate(data), total=len(data), desc="Packing", unit="slice")):
                 save_image(Image.fromarray(slice), os.path.join(tmpdir, f'{i}.jpg'), quality)
 
         with open(jpeg_stack_filename, 'wb') as f:
             f.write(len(data).to_bytes(4, 'little'))
-            for i in tqdm(range(len(data)), desc="Writing", unit="slice"):
+            for i in (range(len(data)) if quiet else
+                      tqdm(range(len(data)), desc="Writing", unit="slice")):
                 with open(os.path.join(tmpdir, f'{i}.jpg'), 'rb') as img_file:
                     img_data = img_file.read()
                     f.write(len(img_data).to_bytes(4, 'little'))
                     f.write(img_data)
-    print_success(f"{jpeg_stack_filename} successfully packed!")
+    if not quiet:
+        print_success(f"{jpeg_stack_filename} successfully packed!")
     return jpeg_stack_filename
 
-def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False):
+def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, quiet=False):
     """
     Convert a JPEG stack to an MRC file.
 
@@ -202,8 +207,9 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
     :param str mrc_filename: The output MRC filename
     :param int cores: Number of CPU cores to use (default: None, uses all available cores)
     :param bool verbose: Whether to print verbose output
+    :param bool quiet: Whether to suppress all output and progress bars
     """
-    if verbose:
+    if verbose and not quiet:
         print(f"Input JPEG stack: {jpeg_stack_filename}")
         print(f"Output MRC filename (before processing): {mrc_filename}")
 
@@ -231,7 +237,8 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
         with open(jpeg_stack_filename, 'rb') as f:
             num_images = int.from_bytes(f.read(4), 'little')
 
-            for i in tqdm(range(num_images), desc="Extracting", unit="slice"):
+            for i in (range(num_images) if quiet else
+                      tqdm(range(num_images), desc="Extracting", unit="slice")):
                 img_size = int.from_bytes(f.read(4), 'little')
                 img_data = f.read(img_size)
                 with open(os.path.join(tmpdir, f'{i}.jpg'), 'wb') as img_file:
@@ -239,15 +246,19 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
 
         if cores > 1:
             with Pool(processes=cores) as pool:
-                images = list(tqdm(pool.imap(load_image, 
-                    [os.path.join(tmpdir, f'{i}.jpg') for i in range(num_images)]), 
-                    total=num_images, desc="Loading", unit="slice"))
+                images = list(pool.imap(load_image, 
+                    [os.path.join(tmpdir, f'{i}.jpg') for i in range(num_images)]) if quiet else
+                    tqdm(pool.imap(load_image, 
+                        [os.path.join(tmpdir, f'{i}.jpg') for i in range(num_images)]), 
+                        total=num_images, desc="Loading", unit="slice"))
         else:
             images = []
-            for i in tqdm(range(num_images), desc="Loading", unit="slice"):
+            for i in (range(num_images) if quiet else
+                      tqdm(range(num_images), desc="Loading", unit="slice")):
                 images.append(load_image(os.path.join(tmpdir, f'{i}.jpg')))
 
-        data = np.array([np.array(img) for img in tqdm(images, desc="Converting", unit="slice")])
+        data = np.array([np.array(img) for img in (images if quiet else
+                         tqdm(images, desc="Converting", unit="slice"))])
 
         header = read_header(jpeg_stack_filename)
 
@@ -259,7 +270,8 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
                 except:
                     pass
             mrc.set_data((data - 128).astype(np.int8))
-    print_success(f"{mrc_filename} successfully unpacked!")
+    if not quiet:
+        print_success(f"{mrc_filename} successfully unpacked!")
     return mrc_filename
 
 def report_compression_ratio(input_path, output_files):
@@ -311,8 +323,14 @@ def main():
     parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
     parser.add_argument('-V', '--verbose', action='store_true', help='Print verbose output')
+    parser.add_argument('--quiet', action='store_true', help='Suppress all output and progress bars')
     parser.add_argument("-v", "--version", action="version", help="Show version number and exit", version=f"JPEG Tomogram v{__version__}")
     args = parser.parse_args()
+
+    # If quiet mode is enabled, suppress all output
+    if args.quiet:
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
 
     input_path = Path(args.input_path)
     output_path = Path(args.output_path) if args.output_path else None
@@ -377,20 +395,24 @@ def main():
                     args.output_path = os.path.join(args.output_path, output_filename)
 
         if args.mode == 'pack':
-            output_file = mrc_to_jpeg_stack(args.input_path, args.output_path, args.quality, args.cores, args.verbose)
-            report_compression_ratio(args.input_path, [output_file])
+            output_file = mrc_to_jpeg_stack(args.input_path, args.output_path, args.quality, args.cores, args.verbose, args.quiet)
+            if not args.quiet:
+                report_compression_ratio(args.input_path, [output_file])
         elif args.mode == 'unpack':
-            if args.verbose:
+            if args.verbose and not args.quiet:
                 print(f"Input file: {args.input_path}")
                 print(f"Output path: {args.output_path}")
-            mrc_filename = jpeg_stack_to_mrc(args.input_path, args.output_path, args.cores, args.verbose)
-            if args.external_viewer:
+            mrc_filename = jpeg_stack_to_mrc(args.input_path, args.output_path, args.cores, args.verbose, args.quiet)
+            if args.external_viewer and not args.quiet:
                 print(f"Opening {mrc_filename} with {args.external_viewer}...")
-                subprocess.run([args.external_viewer, mrc_filename], check=True)
+            if args.external_viewer:
+                subprocess.run([args.external_viewer, mrc_filename], check=True, stdout=subprocess.DEVNULL if args.quiet else None, stderr=subprocess.DEVNULL if args.quiet else None)
         num_files = 1
 
     end_time = time.time()
-    print(f"Total time taken to process {num_files} tomogram{'s' if num_files > 1 else ''}: {end_time - start_time:.2f} seconds")
+    if not args.quiet:
+        end_time = time.time()
+        print(f"Total time taken to process {num_files} tomogram{'s' if num_files > 1 else ''}: {end_time - start_time:.2f} seconds")
 
 if __name__ == '__main__':
     main()
