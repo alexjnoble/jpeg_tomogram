@@ -121,14 +121,14 @@ def read_header(filename):
     """
     base_name = os.path.splitext(filename)[0]  # Remove the .jpgs extension
     header_pattern = f"{base_name}*_header.npy"
-    
+
     matching_headers = list(Path('.').glob(header_pattern))
-    
+
     if matching_headers:
         header_file = str(matching_headers[0])
         print(f"Found header file: {header_file}")
         return np.load(header_file)
-    
+
     print_warning(f"Warning: No header file found matching {header_pattern}. Unpacked MRC file will have default header values.")
     return {}
 
@@ -210,7 +210,7 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
     base_name = os.path.splitext(jpeg_stack_filename)[0]
     header_pattern = f"{base_name}*_header.npy"
     matching_headers = list(Path('.').glob(header_pattern))
-    
+
     if matching_headers:
         header_file = str(matching_headers[0])
         # Extract the original filename from the header filename
@@ -242,7 +242,7 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
             images = []
             for i in tqdm(range(num_images), desc="Loading", unit="slice"):
                 images.append(load_image(os.path.join(tmpdir, f'{i}.jpg')))
-        
+
         data = np.array([np.array(img) for img in tqdm(images, desc="Converting", unit="slice")])
 
         header = read_header(jpeg_stack_filename)
@@ -256,6 +256,7 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
                     pass
             mrc.set_data((data - 128).astype(np.int8))
     print_success(f"{mrc_filename} successfully unpacked!")
+    return mrc_filename
 
 def report_compression_ratio(input_path, output_files):
     """
@@ -288,7 +289,7 @@ def unpack_file(args):
     Wrapper function for jpeg_stack_to_mrc to be used with multiprocessing.
 
     :param tuple args: Tuple containing arguments for jpeg_stack_to_mrc
-    :return: Result of jpeg_stack_to_mrc function
+    :return str: The filename of the unpacked MRC file
     """
     return jpeg_stack_to_mrc(*args)
 
@@ -302,7 +303,7 @@ def main():
     parser.add_argument('mode', choices=['pack', 'unpack'], help='Whether to pack an MRC file into a JPEG stack or unpack a JPEG stack into an MRC file')
     parser.add_argument('input_path', help='The input file or directory of files (.mrc and .rec supported)')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
-    parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file (e.g. 3dmod)')
+    parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file(s) (e.g. 3dmod)')
     parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
     parser.add_argument('-V', '--verbose', action='store_true', help='Print verbose output')
@@ -323,11 +324,11 @@ def main():
             if not files:
                 print_error(f"Error: No .jpgs files found in {input_path}")
                 sys.exit(1)
-        
+
         if output_path and not output_path.is_dir():
             print_error(f"Error: Output path {output_path} is not a directory")
             sys.exit(1)
-        
+
         output_path = output_path or input_path
         num_files = len(files)
         cores = args.cores if args.cores else cpu_count()
@@ -344,8 +345,12 @@ def main():
             print(f"Unpacking {num_files} tomograms across {min_cores} CPU cores...")
             with Pool(processes=cores) as pool:
                 unpack_args = [(str(f), str(output_path / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 1, args.verbose) for f in files]
-                list(tqdm(pool.imap(unpack_file, unpack_args), 
+                mrc_filenames = list(tqdm(pool.imap(unpack_file, unpack_args), 
                     total=len(files), desc="Overall Progress", unit="file"))
+
+            if args.external_viewer:
+                print(f"Opening {num_files} files with {args.external_viewer}...")
+                subprocess.run([args.external_viewer] + mrc_filenames, check=True)
 
     else:  # Single file packing/unpacking
         if args.output_path is None:
