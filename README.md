@@ -2,6 +2,16 @@
 
 Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualization and to save space. By default, JPEG packing uses 80% quality, which reduces the size to ~10% of the original while making minimal visual impact to cryoET tomograms. This tool is intended for visualization and annotation of cryoET tomograms, which may be useful locally and for distributing tomograms for faster visual analysis and collaboration.
 
+## Release Notes
+
+### v1.0.0 - August 16, 2024
+
+#### Features
+
+- Initial release of this JPEG Tomogram script for packing/unpacking MRC files to/from JPEG stacks.
+- Reduces tomogram sizes by 90+% with negligible impact on visual quality.
+- Multi-core processing.
+
 ## Warning
 
 This tool should not be used for downstream processing as the JPEG format causes a loss in precision.
