@@ -168,6 +168,10 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
 
         write_header(mrc, jpeg_stack_filename + '_header.npy')
 
+    # Ensure the jpeg_stack_filename has a non-empty basename
+    if os.path.basename(jpeg_stack_filename) == '':
+        jpeg_stack_filename = os.path.join(os.path.dirname(jpeg_stack_filename), 'output')
+
     jpeg_stack_filename = jpeg_stack_filename.rsplit('.', 1)[0] + f'.jpgs'
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -353,11 +357,25 @@ def main():
                 subprocess.run([args.external_viewer] + mrc_filenames, check=True)
 
     else:  # Single file packing/unpacking
+        input_filename = os.path.basename(args.input_path)
+        input_dirname = os.path.dirname(args.input_path)
+
         if args.output_path is None:
             if args.mode == 'pack':
-                args.output_path = args.input_path.rsplit('.', 1)[0] + f'_JPG{args.quality}'
+                output_filename = f"{os.path.splitext(input_filename)[0]}_JPG{args.quality}.jpgs"
+                args.output_path = os.path.join(input_dirname, output_filename)
             elif args.mode == 'unpack':
                 args.output_path = os.path.splitext(args.input_path)[0]  # Just remove the .jpgs extension
+        else:
+            # If output_path is specified and it's a directory, use it as the output directory
+            if os.path.isdir(args.output_path):
+                if args.mode == 'pack':
+                    output_filename = f"{os.path.splitext(input_filename)[0]}_JPG{args.quality}.jpgs"
+                    args.output_path = os.path.join(args.output_path, output_filename)
+                elif args.mode == 'unpack':
+                    output_filename = f"{os.path.splitext(input_filename)[0]}.mrc"
+                    args.output_path = os.path.join(args.output_path, output_filename)
+
         if args.mode == 'pack':
             output_file = mrc_to_jpeg_stack(args.input_path, args.output_path, args.quality, args.cores, args.verbose)
             report_compression_ratio(args.input_path, [output_file])
