@@ -2,6 +2,8 @@
 #
 # Author: Alex J. Noble with help from GPT & Claude, 2023-24 @SEMC, under the MIT License
 #
+# JPEG Tomogram
+#
 # This script packs and unpacks 3D MRC files to custom JPEG stacks and vice versa.
 # By default, JPEG packing uses 80% quality, which reduces the size to ~10%
 # of the original while making minimal visual impact to cryoET tomograms.
@@ -12,6 +14,7 @@
 # Usage, packing a folder of mrc files: ./jpeg_tomogram.py pack tomograms/
 # Usage, single-file unpacking ./jpeg_tomogram.py unpack tomogram.jpgs
 # Usage, unpacking a folder of jpgs files: ./jpeg_tomogram.py unpack tomograms/
+__version__ = "1.0.0"
 
 import io
 import os
@@ -302,7 +305,8 @@ def main():
     parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file (e.g. 3dmod)')
     parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Print verbose output')
+    parser.add_argument('-V', '--verbose', action='store_true', help='Print verbose output')
+    parser.add_argument("-v", "--version", action="version", help="Show version number and exit", version=f"JPEG Tomogram v{__version__}")
     args = parser.parse_args()
 
     input_path = Path(args.input_path)
