@@ -9,7 +9,7 @@ Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualizat
 #### Features
 
 - Initial release of this JPEG Tomogram script for packing/unpacking MRC files to/from JPEG stacks.
-- Reduces tomogram sizes by 90+% with negligible impact on visual quality.
+- Reduces tomogram sizes by ~90% with negligible impact on visual quality.
 - Multi-core processing.
 
 ## Warning
