@@ -83,6 +83,8 @@ In this example, the script will pack the `tomogram.mrc` file into a JPEG stack 
 ### Example 1:
 ![Example 1](example_images/JPEG_tomogram_example1.png)
 
+Examples all use 80% JPEG quality.
+
 ## Requests
 
 Please integrate this script/algorithm/idea into tomography viewing software - such as IMOD, Napari, Amira, Dragonfly, Dynamo - so that .jpgs files can be viewed natively without unpacking them back to large mrc files.
