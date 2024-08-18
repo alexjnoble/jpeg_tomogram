@@ -5,6 +5,12 @@ Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualizat
 
 ## Release Notes
 
+### v1.0.2 - August 18, 2024
+
+#### Features
+
+- Added wildcards and lists as possible inputs (e.g. ./jpeg_tomogram.py pack *mrc *rec)
+
 ### v1.0.1 - August 18, 2024
 
 #### Features
