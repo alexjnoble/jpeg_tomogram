@@ -14,7 +14,7 @@
 # Usage, packing a folder of mrc files: ./jpeg_tomogram.py pack tomograms/
 # Usage, single-file unpacking ./jpeg_tomogram.py unpack tomogram.jpgs
 # Usage, unpacking a folder of jpgs files: ./jpeg_tomogram.py unpack tomograms/
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 import io
 import os
