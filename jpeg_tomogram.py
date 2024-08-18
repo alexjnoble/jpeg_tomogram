@@ -14,7 +14,7 @@
 # Usage, packing a folder of mrc files: ./jpeg_tomogram.py pack tomograms/
 # Usage, single-file unpacking ./jpeg_tomogram.py unpack tomogram.jpgs
 # Usage, unpacking a folder of jpgs files: ./jpeg_tomogram.py unpack tomograms/
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 import io
 import os
@@ -317,7 +317,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Pack or unpack a JPEG stack.')
     parser.add_argument('mode', choices=['pack', 'unpack'], help='Whether to pack an MRC file into a JPEG stack or unpack a JPEG stack into an MRC file')
-    parser.add_argument('input_path', help='The input file or directory of files (.mrc and .rec supported)')
+    parser.add_argument('input_paths', nargs='+', help='The input file(s) or directory of files (.mrc and .rec supported). Can be a list or a wildcard expression.')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
     parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file(s) (e.g. 3dmod)')
     parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
@@ -332,86 +332,63 @@ def main():
         sys.stdout = open(os.devnull, 'w')
         sys.stderr = open(os.devnull, 'w')
 
-    input_path = Path(args.input_path)
-    output_path = Path(args.output_path) if args.output_path else None
-
-    if input_path.is_dir():
-        if args.mode == 'pack':
-            files = list(input_path.glob('*.mrc')) + list(input_path.glob('*.rec'))
-            if not files:
-                print_error(f"Error: No .mrc or .rec files found in {input_path}")
-                sys.exit(1)
-        elif args.mode == 'unpack':
-            files = list(input_path.glob('*.jpgs'))
-            if not files:
-                print_error(f"Error: No .jpgs files found in {input_path}")
-                sys.exit(1)
-
-        if output_path and not output_path.is_dir():
-            print_error(f"Error: Output path {output_path} is not a directory")
-            sys.exit(1)
-
-        output_path = output_path or input_path
-        num_files = len(files)
-        cores = args.cores if args.cores else cpu_count()
-        min_cores = min(cores, num_files)
-
-        if args.mode == 'pack':
-            print(f"Packing {num_files} tomograms with JPEG{args.quality} across {min_cores} CPU cores...")
-            with Pool(processes=cores) as pool:
-                pack_args = [(str(f), str(output_path / (f.stem + f'_JPG{args.quality}')), args.quality, 1, args.verbose) for f in files]
-                output_files = list(tqdm(pool.imap(pack_file, pack_args), 
-                    total=len(files), desc="Overall Progress", unit="file"))
-            report_compression_ratio(str(input_path), output_files)
-        elif args.mode == 'unpack':
-            print(f"Unpacking {num_files} tomograms across {min_cores} CPU cores...")
-            with Pool(processes=cores) as pool:
-                unpack_args = [(str(f), str(output_path / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 1, args.verbose) for f in files]
-                mrc_filenames = list(tqdm(pool.imap(unpack_file, unpack_args), 
-                    total=len(files), desc="Overall Progress", unit="file"))
-
-            if args.external_viewer:
-                print(f"Opening {num_files} files with {args.external_viewer}...")
-                subprocess.run([args.external_viewer] + mrc_filenames, check=True)
-
-    else:  # Single file packing/unpacking
-        input_filename = os.path.basename(args.input_path)
-        input_dirname = os.path.dirname(args.input_path)
-
-        if args.output_path is None:
+    input_paths = []
+    for path in args.input_paths:
+        if Path(path).is_dir():
             if args.mode == 'pack':
-                output_filename = f"{os.path.splitext(input_filename)[0]}_JPG{args.quality}.jpgs"
-                args.output_path = os.path.join(input_dirname, output_filename)
+                input_paths.extend(Path(path).glob('*.mrc'))
+                input_paths.extend(Path(path).glob('*.rec'))
             elif args.mode == 'unpack':
-                args.output_path = os.path.splitext(args.input_path)[0]  # Just remove the .jpgs extension
+                input_paths.extend(Path(path).glob('*.jpgs'))
         else:
-            # If output_path is specified and it's a directory, use it as the output directory
-            if os.path.isdir(args.output_path):
-                if args.mode == 'pack':
-                    output_filename = f"{os.path.splitext(input_filename)[0]}_JPG{args.quality}.jpgs"
-                    args.output_path = os.path.join(args.output_path, output_filename)
-                elif args.mode == 'unpack':
-                    output_filename = f"{os.path.splitext(input_filename)[0]}.mrc"
-                    args.output_path = os.path.join(args.output_path, output_filename)
+            input_paths.extend(Path().glob(path))
 
-        if args.mode == 'pack':
-            output_file = mrc_to_jpeg_stack(args.input_path, args.output_path, args.quality, args.cores, args.verbose, args.quiet)
-            if not args.quiet:
-                report_compression_ratio(args.input_path, [output_file])
-        elif args.mode == 'unpack':
-            if args.verbose and not args.quiet:
-                print(f"Input file: {args.input_path}")
-                print(f"Output path: {args.output_path}")
-            mrc_filename = jpeg_stack_to_mrc(args.input_path, args.output_path, args.cores, args.verbose, args.quiet)
-            if args.external_viewer and not args.quiet:
-                print(f"Opening {mrc_filename} with {args.external_viewer}...")
-            if args.external_viewer:
-                subprocess.run([args.external_viewer, mrc_filename], check=True, stdout=subprocess.DEVNULL if args.quiet else None, stderr=subprocess.DEVNULL if args.quiet else None)
-        num_files = 1
+    if not input_paths:
+        print_error(f"Error: No matching files found for input path(s): {args.input_paths}")
+        sys.exit(1)
+
+    output_path = Path(args.output_path) if args.output_path else None
+    num_files = len(input_paths)
+    cores = args.cores if args.cores else cpu_count()
+    min_cores = min(cores, num_files)
+
+    if args.mode == 'pack':
+        print(f"Packing {num_files} tomograms with JPEG{args.quality} across {min_cores} CPU cores...")
+        with Pool(processes=cores) as pool:
+            pack_args = [
+                (
+                    str(f), 
+                    str((output_path or f.parent) / (f.stem + f'_JPG{args.quality}')), 
+                    args.quality, 
+                    1, 
+                    args.verbose
+                ) 
+                for f in input_paths
+            ]
+            output_files = list(tqdm(pool.imap(pack_file, pack_args), 
+                total=len(input_paths), desc="Overall Progress", unit="file"))
+        report_compression_ratio(str(args.input_paths[0]), output_files)
+    elif args.mode == 'unpack':
+        print(f"Unpacking {num_files} tomograms across {min_cores} CPU cores...")
+        with Pool(processes=cores) as pool:
+            unpack_args = [
+                (
+                    str(f), 
+                    str((output_path or f.parent) / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 
+                    1, 
+                    args.verbose
+                ) 
+                for f in input_paths
+            ]
+            mrc_filenames = list(tqdm(pool.imap(unpack_file, unpack_args), 
+                total=len(input_paths), desc="Overall Progress", unit="file"))
+
+        if args.external_viewer:
+            print(f"Opening {num_files} files with {args.external_viewer}...")
+            subprocess.run([args.external_viewer] + mrc_filenames, check=True)
 
     end_time = time.time()
     if not args.quiet:
-        end_time = time.time()
         print(f"Total time taken to process {num_files} tomogram{'s' if num_files > 1 else ''}: {end_time - start_time:.2f} seconds")
 
 if __name__ == '__main__':
