@@ -99,7 +99,7 @@ In this example, the script will pack the `tomogram.mrc` file into a JPEG stack 
 
 All examples use 80% JPEG quality.
 
-## References
+## Reference
 
 Noble, A.J. (2024). alexjnoble/jpeg_tomogram: JPEG Tomogram v1.0.1 (v1.0.1). Zenodo. https://doi.org/10.5281/zenodo.13338201
 
