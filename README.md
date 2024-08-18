@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13338201.svg)](https://doi.org/10.5281/zenodo.13338201)
+
 # JPEG Tomogram Conversion Script
 
 Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualization and to save space. By default, JPEG packing uses 80% quality, which reduces the size to ~10% of the original while making minimal visual impact to cryoET tomograms. This tool is intended for visualization and annotation of cryoET tomograms, which may be useful locally and for distributing tomograms for faster visual analysis and collaboration.
