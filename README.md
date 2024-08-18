@@ -4,6 +4,12 @@ Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualizat
 
 ## Release Notes
 
+### v1.0.1 - August 18, 2024
+
+#### Features
+
+- Zenodo release.
+
 ### v1.0.0 - August 16, 2024
 
 #### Features
