@@ -11,13 +11,13 @@ Pack and unpack 3D MRC files to custom JPEG stacks and vice versa for visualizat
 
 - Added wildcards and lists as possible inputs (e.g. ./jpeg_tomogram.py pack *mrc *rec)
 
-<details><summary>### v1.0.1 - August 18, 2024</summary><p>
+<details><summary>v1.0.1 - August 18, 2024</summary><p>
  
    - Zenodo release.
 
 </p></details>
 
-<details><summary>### v1.0.0 - August 16, 2024</summary><p>
+<details><summary>v1.0.0 - August 16, 2024</summary><p>
  
    - Initial release of this JPEG Tomogram script for packing/unpacking MRC files to/from JPEG stacks.
    - Reduces tomogram sizes by ~90% with negligible impact on visual quality.
