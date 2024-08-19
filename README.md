@@ -39,6 +39,19 @@ pip install mrcfile numpy pillow tqdm
 
 To use JPEG Tomogram, download the jpeg_tomogram.py file directly and place it in your working directory or environment for use. Make it executable on Linux with this command: `chmod +x jpeg_tomogram.py`.
 
+## Examples
+
+### Example 1:
+![Example 1](example_images/JPEG_tomogram_example1.png)
+
+### Example 2:
+![Example 2](example_images/JPEG_tomogram_example2.png)
+
+### Example 3:
+![Example 3](example_images/JPEG_tomogram_example3.png)
+
+All examples use 80% JPEG quality.
+
 ## Usage
 
 You can use this script to pack or unpack single files or entire directories. Here are some examples:
@@ -91,19 +104,6 @@ This command will do the following:
 - `-V`: This is an optional argument that enables verbose output. If you use the -V option, the script will print more detailed messages about what it's doing.
 
 In this example, the script will pack the `tomogram.mrc` file into a JPEG stack with a quality of 90. The output will be saved in `output_directory/`. The script will use 4 CPU cores, and verbose output will be enabled.
-
-## Examples
-
-### Example 1:
-![Example 1](example_images/JPEG_tomogram_example1.png)
-
-### Example 2:
-![Example 2](example_images/JPEG_tomogram_example2.png)
-
-### Example 3:
-![Example 3](example_images/JPEG_tomogram_example3.png)
-
-All examples use 80% JPEG quality.
 
 ## Reference
 
