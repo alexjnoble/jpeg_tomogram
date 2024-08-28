@@ -21,6 +21,7 @@ import os
 import sys
 import time
 import shlex
+import fnmatch
 import mrcfile
 import argparse
 import tempfile
@@ -173,7 +174,7 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
     if os.path.basename(jpeg_stack_filename) == '':
         jpeg_stack_filename = os.path.join(os.path.dirname(jpeg_stack_filename), 'output')
 
-    jpeg_stack_filename = jpeg_stack_filename.rsplit('.', 1)[0] + f'.jpgs'
+    jpeg_stack_filename = str(Path(jpeg_stack_filename).with_suffix('.jpgs'))
 
     with tempfile.TemporaryDirectory() as tmpdir:
         if cores > 1:
@@ -281,15 +282,23 @@ def report_compression_ratio(input_path, output_files):
     :param str input_path: The input file or directory path
     :param list output_files: List of output file paths
     """
-    if os.path.isdir(input_path):
-        input_files = list(Path(input_path).glob('*.mrc')) + list(Path(input_path).glob('*.rec'))
+    # Normalize the input path to handle cases like '.'
+    input_path = Path(input_path).resolve()
+
+    if input_path.is_dir():
+        input_files = list(input_path.glob('*.mrc')) + list(input_path.glob('*.rec'))
         input_size = sum(os.path.getsize(str(f)) for f in input_files)
     else:
+        input_files = [input_path]
         input_size = os.path.getsize(input_path)
 
     output_size = sum(os.path.getsize(f) for f in output_files)
     percentage = (1 - output_size / input_size) * 100
-    print(f"Size reduction: {percentage:.2f}%")
+
+    if len(input_files) > 1 or input_path.is_dir():
+        print(f"Overall size reduction: {percentage:.2f}%")
+    else:
+        print(f"Size reduction: {percentage:.2f}%")
 
 def pack_file(args):
     """
@@ -341,7 +350,16 @@ def main():
             elif args.mode == 'unpack':
                 input_paths.extend(Path(path).glob('*.jpgs'))
         else:
-            input_paths.extend(Path().glob(path))
+            # Handle wildcard patterns (e.g., '*')
+            if '*' in path or '?' in path or '[' in path:
+                # Filter to include only .mrc and .rec files
+                for f in Path().glob(path):
+                    if f.suffix in {'.mrc', '.rec'}:
+                        input_paths.append(f)
+            else:
+                # Explicitly check the file extension
+                if Path(path).suffix in {'.mrc', '.rec'}:
+                    input_paths.append(Path(path))
 
     if not input_paths:
         print_error(f"Error: No matching files found for input path(s): {args.input_paths}")
