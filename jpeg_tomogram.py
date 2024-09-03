@@ -200,15 +200,16 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
         print_success(f"{jpeg_stack_filename} successfully packed!")
     return jpeg_stack_filename
 
-def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, quiet=False, output_format='mrc'):
+def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, output_format='mrc', quiet=False):
     """
-    Convert a JPEG stack to an MRC file.
+    Convert a JPEG stack to an MRC file or a directory of JPEGS.
 
     :param str jpeg_stack_filename: The input JPEG stack filename
-    :param str mrc_filename: The output MRC filename
+    :param str mrc_filename: The output MRC filename or directory
     :param int cores: Number of CPU cores to use (default: None, uses all available cores)
     :param bool verbose: Whether to print verbose output
     :param bool quiet: Whether to suppress all output and progress bars
+    :param str output_format: Output format, either 'mrc' or 'dir'
     """
     if verbose and not quiet:
         print(f"Input JPEG stack: {jpeg_stack_filename}")
