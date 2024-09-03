@@ -200,15 +200,16 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
         print_success(f"{jpeg_stack_filename} successfully packed!")
     return jpeg_stack_filename
 
-def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, quiet=False):
+def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, output_format='mrc', quiet=False):
     """
-    Convert a JPEG stack to an MRC file.
+    Convert a JPEG stack to an MRC file or a directory of JPEGS.
 
     :param str jpeg_stack_filename: The input JPEG stack filename
-    :param str mrc_filename: The output MRC filename
+    :param str mrc_filename: The output MRC filename or directory
     :param int cores: Number of CPU cores to use (default: None, uses all available cores)
     :param bool verbose: Whether to print verbose output
     :param bool quiet: Whether to suppress all output and progress bars
+    :param str output_format: Output format, either 'mrc' or 'dir'
     """
     if verbose and not quiet:
         print(f"Input JPEG stack: {jpeg_stack_filename}")
@@ -217,19 +218,23 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
     if cores is None:
         cores = cpu_count()
 
-    # Find the header file
-    base_name = os.path.splitext(jpeg_stack_filename)[0]
-    header_pattern = f"{base_name}*_header.npy"
-    matching_headers = list(Path('.').glob(header_pattern))
-
-    if matching_headers:
-        header_file = str(matching_headers[0])
-        # Extract the original filename from the header filename
-        original_filename = header_file.rsplit('_JPG', 1)[0] + '.mrc'
-        mrc_filename = original_filename
+    if output_format == 'dir':
+        output_dir = Path(mrc_filename).with_suffix('')
+        output_dir.mkdir(parents=True, exist_ok=True)
     else:
-        # If no header file is found, use the input filename without the .jpgs extension
-        mrc_filename = base_name + '.mrc'
+        # Find the header file
+        base_name = os.path.splitext(jpeg_stack_filename)[0]
+        header_pattern = f"{base_name}*_header.npy"
+        matching_headers = list(Path('.').glob(header_pattern))
+
+        if matching_headers:
+            header_file = str(matching_headers[0])
+            # Extract the original filename from the header filename
+            original_filename = header_file.rsplit('_JPG', 1)[0] + '.mrc'
+            mrc_filename = original_filename
+        else:
+            # If no header file is found, use the input filename without the .jpgs extension
+            mrc_filename = base_name + '.mrc'
 
     if verbose:
         print(f"Output MRC filename (after processing): {mrc_filename}")
@@ -261,18 +266,24 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
         data = np.array([np.array(img) for img in (images if quiet else
                          tqdm(images, desc="Converting", unit="slice"))])
 
-        header = read_header(jpeg_stack_filename)
+        if output_format == 'dir':
+            for i, img in enumerate(tqdm(images, desc="Saving JPGs", unit="slice")):
+                img.save(output_dir / f"{i:04d}.jpg", "JPEG")
+            print_success(f"JPGs successfully unpacked to {output_dir}!")
 
-        with mrcfile.new(mrc_filename, overwrite=True) as mrc:
-            include_fields = ['nx', 'ny', 'nz', 'mode', 'nxstart', 'nystart', 'nzstart', 'mx', 'my', 'mz', 'xlen', 'ylen', 'zlen', 'alpha', 'beta', 'gamma', 'mapc', 'mapr', 'maps', 'amin', 'amax', 'amean', 'ispg', 'extra', 'xorigin', 'yorigin', 'zorigin', 'map', 'machst', 'rms', 'nlabels', 'cella']
-            for field in include_fields:
-                try:
-                    mrc.header[field] = header[field]
-                except:
-                    pass
-            mrc.set_data((data - 128).astype(np.int8))
-    if not quiet:
-        print_success(f"{mrc_filename} successfully unpacked!")
+        else:
+            header = read_header(jpeg_stack_filename)
+
+            with mrcfile.new(mrc_filename, overwrite=True) as mrc:
+                include_fields = ['nx', 'ny', 'nz', 'mode', 'nxstart', 'nystart', 'nzstart', 'mx', 'my', 'mz', 'xlen', 'ylen', 'zlen', 'alpha', 'beta', 'gamma', 'mapc', 'mapr', 'maps', 'amin', 'amax', 'amean', 'ispg', 'extra', 'xorigin', 'yorigin', 'zorigin', 'map', 'machst', 'rms', 'nlabels', 'cella']
+                for field in include_fields:
+                    try:
+                        mrc.header[field] = header[field]
+                    except:
+                        pass
+                mrc.set_data((data - 128).astype(np.int8))
+        if not quiet:
+            print_success(f"{mrc_filename} successfully unpacked!")
     return mrc_filename
 
 def report_compression_ratio(input_path, output_files):
@@ -318,6 +329,33 @@ def unpack_file(args):
     """
     return jpeg_stack_to_mrc(*args)
 
+def collect_input_paths(input_paths, mode):
+    """
+    Collects and returns a list of valid input paths based on the specified mode.
+
+    :param input_paths: List of input paths (files or directories)
+    :param mode: Operation mode, either 'pack' or 'unpack'
+    :return: List of paths to process
+    """
+    valid_extensions = {'.mrc', '.rec'} if mode == 'pack' else {'.jpgs'}
+    collected_paths = []
+
+    for path in input_paths:
+        path_obj = Path(path)
+
+        if path_obj.is_dir():
+            collected_paths.extend(path_obj.glob(f"*{ext}") for ext in valid_extensions)
+        elif path_obj.is_file() and path_obj.suffix in valid_extensions:
+            collected_paths.append(path_obj)
+        else:
+            # Handle wildcard patterns (e.g., '*', '?', or '[')
+            if any(char in path for char in '*?[]'):
+                collected_paths.extend(
+                    f for f in Path().glob(path) if f.suffix in valid_extensions
+                )
+
+    return collected_paths
+
 def main():
     """
     Main function to handle command-line arguments and execute packing or unpacking operations.
@@ -328,6 +366,7 @@ def main():
     parser.add_argument('mode', choices=['pack', 'unpack'], help='Whether to pack an MRC file into a JPEG stack or unpack a JPEG stack into an MRC file')
     parser.add_argument('input_paths', nargs='+', help='The input file(s) or directory of files (.mrc and .rec supported). Can be a list or a wildcard expression.')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
+    parser.add_argument('-f', '--output_format', choices=['mrc', 'dir'], default='mrc', help="Specify the output format when unpacking. 'mrc' for MRC file, 'dir' for a directory of JPGs (default: mrc)")
     parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file(s) (e.g. 3dmod)')
     parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
@@ -336,30 +375,7 @@ def main():
     parser.add_argument("-v", "--version", action="version", help="Show version number and exit", version=f"JPEG Tomogram v{__version__}")
     args = parser.parse_args()
 
-    # If quiet mode is enabled, suppress all output
-    if args.quiet:
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
-
-    input_paths = []
-    for path in args.input_paths:
-        if Path(path).is_dir():
-            if args.mode == 'pack':
-                input_paths.extend(Path(path).glob('*.mrc'))
-                input_paths.extend(Path(path).glob('*.rec'))
-            elif args.mode == 'unpack':
-                input_paths.extend(Path(path).glob('*.jpgs'))
-        else:
-            # Handle wildcard patterns (e.g., '*')
-            if '*' in path or '?' in path or '[' in path:
-                # Filter to include only .mrc and .rec files
-                for f in Path().glob(path):
-                    if f.suffix in {'.mrc', '.rec'}:
-                        input_paths.append(f)
-            else:
-                # Explicitly check the file extension
-                if Path(path).suffix in {'.mrc', '.rec'}:
-                    input_paths.append(Path(path))
+    input_paths = collect_input_paths(args.input_paths, args.mode)
 
     if not input_paths:
         print_error(f"Error: No matching files found for input path(s): {args.input_paths}")
@@ -394,7 +410,8 @@ def main():
                     str(f), 
                     str((output_path or f.parent) / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 
                     1, 
-                    args.verbose
+                    args.verbose,
+                    args.output_format
                 ) 
                 for f in input_paths
             ]
