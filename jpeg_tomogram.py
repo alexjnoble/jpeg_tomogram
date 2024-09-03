@@ -318,6 +318,33 @@ def unpack_file(args):
     """
     return jpeg_stack_to_mrc(*args)
 
+def collect_input_paths(input_paths, mode):
+    """
+    Collects and returns a list of valid input paths based on the specified mode.
+
+    :param input_paths: List of input paths (files or directories)
+    :param mode: Operation mode, either 'pack' or 'unpack'
+    :return: List of paths to process
+    """
+    valid_extensions = {'.mrc', '.rec'} if mode == 'pack' else {'.jpgs'}
+    collected_paths = []
+
+    for path in input_paths:
+        path_obj = Path(path)
+
+        if path_obj.is_dir():
+            collected_paths.extend(path_obj.glob(f"*{ext}") for ext in valid_extensions)
+        elif path_obj.is_file() and path_obj.suffix in valid_extensions:
+            collected_paths.append(path_obj)
+        else:
+            # Handle wildcard patterns (e.g., '*', '?', or '[')
+            if any(char in path for char in '*?[]'):
+                collected_paths.extend(
+                    f for f in Path().glob(path) if f.suffix in valid_extensions
+                )
+
+    return collected_paths
+
 def main():
     """
     Main function to handle command-line arguments and execute packing or unpacking operations.
@@ -336,30 +363,7 @@ def main():
     parser.add_argument("-v", "--version", action="version", help="Show version number and exit", version=f"JPEG Tomogram v{__version__}")
     args = parser.parse_args()
 
-    # If quiet mode is enabled, suppress all output
-    if args.quiet:
-        sys.stdout = open(os.devnull, 'w')
-        sys.stderr = open(os.devnull, 'w')
-
-    input_paths = []
-    for path in args.input_paths:
-        if Path(path).is_dir():
-            if args.mode == 'pack':
-                input_paths.extend(Path(path).glob('*.mrc'))
-                input_paths.extend(Path(path).glob('*.rec'))
-            elif args.mode == 'unpack':
-                input_paths.extend(Path(path).glob('*.jpgs'))
-        else:
-            # Handle wildcard patterns (e.g., '*')
-            if '*' in path or '?' in path or '[' in path:
-                # Filter to include only .mrc and .rec files
-                for f in Path().glob(path):
-                    if f.suffix in {'.mrc', '.rec'}:
-                        input_paths.append(f)
-            else:
-                # Explicitly check the file extension
-                if Path(path).suffix in {'.mrc', '.rec'}:
-                    input_paths.append(Path(path))
+    input_paths = collect_input_paths(args.input_paths, args.mode)
 
     if not input_paths:
         print_error(f"Error: No matching files found for input path(s): {args.input_paths}")
