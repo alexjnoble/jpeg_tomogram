@@ -200,7 +200,7 @@ def mrc_to_jpeg_stack(mrc_filename, jpeg_stack_filename, quality, cores=None, ve
         print_success(f"{jpeg_stack_filename} successfully packed!")
     return jpeg_stack_filename
 
-def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, quiet=False):
+def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=False, quiet=False, output_format='mrc'):
     """
     Convert a JPEG stack to an MRC file.
 
@@ -217,19 +217,23 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
     if cores is None:
         cores = cpu_count()
 
-    # Find the header file
-    base_name = os.path.splitext(jpeg_stack_filename)[0]
-    header_pattern = f"{base_name}*_header.npy"
-    matching_headers = list(Path('.').glob(header_pattern))
-
-    if matching_headers:
-        header_file = str(matching_headers[0])
-        # Extract the original filename from the header filename
-        original_filename = header_file.rsplit('_JPG', 1)[0] + '.mrc'
-        mrc_filename = original_filename
+    if output_format == 'dir':
+        output_dir = Path(mrc_filename).with_suffix('')
+        output_dir.mkdir(parents=True, exist_ok=True)
     else:
-        # If no header file is found, use the input filename without the .jpgs extension
-        mrc_filename = base_name + '.mrc'
+        # Find the header file
+        base_name = os.path.splitext(jpeg_stack_filename)[0]
+        header_pattern = f"{base_name}*_header.npy"
+        matching_headers = list(Path('.').glob(header_pattern))
+
+        if matching_headers:
+            header_file = str(matching_headers[0])
+            # Extract the original filename from the header filename
+            original_filename = header_file.rsplit('_JPG', 1)[0] + '.mrc'
+            mrc_filename = original_filename
+        else:
+            # If no header file is found, use the input filename without the .jpgs extension
+            mrc_filename = base_name + '.mrc'
 
     if verbose:
         print(f"Output MRC filename (after processing): {mrc_filename}")
@@ -261,18 +265,24 @@ def jpeg_stack_to_mrc(jpeg_stack_filename, mrc_filename, cores=None, verbose=Fal
         data = np.array([np.array(img) for img in (images if quiet else
                          tqdm(images, desc="Converting", unit="slice"))])
 
-        header = read_header(jpeg_stack_filename)
+        if output_format == 'dir':
+            for i, img in enumerate(tqdm(images, desc="Saving JPGs", unit="slice")):
+                img.save(output_dir / f"{i:04d}.jpg", "JPEG")
+            print_success(f"JPGs successfully unpacked to {output_dir}!")
 
-        with mrcfile.new(mrc_filename, overwrite=True) as mrc:
-            include_fields = ['nx', 'ny', 'nz', 'mode', 'nxstart', 'nystart', 'nzstart', 'mx', 'my', 'mz', 'xlen', 'ylen', 'zlen', 'alpha', 'beta', 'gamma', 'mapc', 'mapr', 'maps', 'amin', 'amax', 'amean', 'ispg', 'extra', 'xorigin', 'yorigin', 'zorigin', 'map', 'machst', 'rms', 'nlabels', 'cella']
-            for field in include_fields:
-                try:
-                    mrc.header[field] = header[field]
-                except:
-                    pass
-            mrc.set_data((data - 128).astype(np.int8))
-    if not quiet:
-        print_success(f"{mrc_filename} successfully unpacked!")
+        else:
+            header = read_header(jpeg_stack_filename)
+
+            with mrcfile.new(mrc_filename, overwrite=True) as mrc:
+                include_fields = ['nx', 'ny', 'nz', 'mode', 'nxstart', 'nystart', 'nzstart', 'mx', 'my', 'mz', 'xlen', 'ylen', 'zlen', 'alpha', 'beta', 'gamma', 'mapc', 'mapr', 'maps', 'amin', 'amax', 'amean', 'ispg', 'extra', 'xorigin', 'yorigin', 'zorigin', 'map', 'machst', 'rms', 'nlabels', 'cella']
+                for field in include_fields:
+                    try:
+                        mrc.header[field] = header[field]
+                    except:
+                        pass
+                mrc.set_data((data - 128).astype(np.int8))
+        if not quiet:
+            print_success(f"{mrc_filename} successfully unpacked!")
     return mrc_filename
 
 def report_compression_ratio(input_path, output_files):
@@ -355,6 +365,7 @@ def main():
     parser.add_argument('mode', choices=['pack', 'unpack'], help='Whether to pack an MRC file into a JPEG stack or unpack a JPEG stack into an MRC file')
     parser.add_argument('input_paths', nargs='+', help='The input file(s) or directory of files (.mrc and .rec supported). Can be a list or a wildcard expression.')
     parser.add_argument('-o', '--output_path', help='The output file or directory (default: same as input path)')
+    parser.add_argument('-f', '--output_format', choices=['mrc', 'dir'], default='mrc', help="Specify the output format when unpacking. 'mrc' for MRC file, 'dir' for a directory of JPGs (default: mrc)")
     parser.add_argument('-e', '--external_viewer', help='External program to open the unpacked MRC file(s) (e.g. 3dmod)')
     parser.add_argument('-q', '--quality', type=validate_quality, default=80, help='The quality of the JPEG images in the stack (1-100). Note: values above 95 should be avoided (default: 80)')
     parser.add_argument('-c', '--cores', type=int, default=None, help='Number of CPU cores to use (default: all)')
@@ -398,7 +409,8 @@ def main():
                     str(f), 
                     str((output_path or f.parent) / (f.stem.replace(f'_JPG{args.quality}', f'_fromJPG{args.quality}'))), 
                     1, 
-                    args.verbose
+                    args.verbose,
+                    args.output_format
                 ) 
                 for f in input_paths
             ]
